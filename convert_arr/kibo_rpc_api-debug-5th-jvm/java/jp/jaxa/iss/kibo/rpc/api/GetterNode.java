@@ -767,4 +767,9 @@ public class GetterNode extends AbstractNodeMain implements MessageListener<Comm
     public GraphName getDefaultNodeName() {
         return GraphName.of("gs_manager_stub");
     }
+
+    public boolean isNodeStarted() {
+        return this.m_started;
+    }
+
 }

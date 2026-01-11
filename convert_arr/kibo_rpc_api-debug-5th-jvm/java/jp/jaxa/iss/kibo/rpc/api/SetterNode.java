@@ -150,7 +150,7 @@ extends AbstractNodeMain {
             message.setState(signalState.byteValue());
             try {
                 for (int i = 0; i < times; ++i) {
-                    this.signalStatePublisher.publish((Object)message);
+                    this.signalStatePublisher.publish(message);
                     Log.i((String)"KiboRpcApi", (String)("SetterNode setSignalState publish " + (i + 1) + " th"));
                     Thread.sleep(10L);
                 }

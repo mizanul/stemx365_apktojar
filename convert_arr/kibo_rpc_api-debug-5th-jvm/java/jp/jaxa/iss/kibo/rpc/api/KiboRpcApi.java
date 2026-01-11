@@ -175,7 +175,7 @@ extends Activity {
                     if (counter > timeout) {
                         Log.v((String)"KiboRpcApi", (String)"[getCommandResult] return null");
                         Object var7_10 = null;
-                        return var7_10;
+        return null;
                     }
                 }
                 if (printRobotPosition) {
