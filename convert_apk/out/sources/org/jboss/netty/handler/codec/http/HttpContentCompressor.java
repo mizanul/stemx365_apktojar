@@ -1,0 +1,124 @@
+package org.jboss.netty.handler.codec.http;
+
+import org.jboss.netty.buffer.ChannelBuffer;
+import org.jboss.netty.handler.codec.compression.JdkZlibEncoder;
+import org.jboss.netty.handler.codec.compression.ZlibEncoder;
+import org.jboss.netty.handler.codec.compression.ZlibWrapper;
+import org.jboss.netty.handler.codec.embedder.EncoderEmbedder;
+import org.jboss.netty.util.internal.DetectionUtil;
+import org.ros.node.topic.Subscriber;
+
+public class HttpContentCompressor extends HttpContentEncoder {
+    private final int compressionLevel;
+    private final int memLevel;
+    private final int windowBits;
+
+    public HttpContentCompressor() {
+        this(6);
+    }
+
+    public HttpContentCompressor(int compressionLevel2) {
+        this(compressionLevel2, 15, 8);
+    }
+
+    public HttpContentCompressor(int compressionLevel2, int windowBits2, int memLevel2) {
+        if (compressionLevel2 < 0 || compressionLevel2 > 9) {
+            throw new IllegalArgumentException("compressionLevel: " + compressionLevel2 + " (expected: 0-9)");
+        } else if (windowBits2 < 9 || windowBits2 > 15) {
+            throw new IllegalArgumentException("windowBits: " + windowBits2 + " (expected: 9-15)");
+        } else if (memLevel2 < 1 || memLevel2 > 9) {
+            throw new IllegalArgumentException("memLevel: " + memLevel2 + " (expected: 1-9)");
+        } else {
+            this.compressionLevel = compressionLevel2;
+            this.windowBits = windowBits2;
+            this.memLevel = memLevel2;
+        }
+    }
+
+    /* access modifiers changed from: protected */
+    public EncoderEmbedder<ChannelBuffer> newContentEncoder(HttpMessage msg, String acceptEncoding) throws Exception {
+        ZlibWrapper wrapper;
+        String contentEncoding = msg.getHeader("Content-Encoding");
+        if ((contentEncoding != null && !"identity".equalsIgnoreCase(contentEncoding)) || (wrapper = determineWrapper(acceptEncoding)) == null) {
+            return null;
+        }
+        if (DetectionUtil.javaVersion() >= 7) {
+            return new EncoderEmbedder<>(new JdkZlibEncoder(wrapper, this.compressionLevel));
+        }
+        return new EncoderEmbedder<>(new ZlibEncoder(wrapper, this.compressionLevel, this.windowBits, this.memLevel));
+    }
+
+    /* access modifiers changed from: protected */
+    public String getTargetContentEncoding(String acceptEncoding) throws Exception {
+        ZlibWrapper wrapper = determineWrapper(acceptEncoding);
+        if (wrapper == null) {
+            return null;
+        }
+        int i = C08771.$SwitchMap$org$jboss$netty$handler$codec$compression$ZlibWrapper[wrapper.ordinal()];
+        if (i == 1) {
+            return "gzip";
+        }
+        if (i == 2) {
+            return "deflate";
+        }
+        throw new Error();
+    }
+
+    /* renamed from: org.jboss.netty.handler.codec.http.HttpContentCompressor$1 */
+    static /* synthetic */ class C08771 {
+        static final /* synthetic */ int[] $SwitchMap$org$jboss$netty$handler$codec$compression$ZlibWrapper;
+
+        static {
+            int[] iArr = new int[ZlibWrapper.values().length];
+            $SwitchMap$org$jboss$netty$handler$codec$compression$ZlibWrapper = iArr;
+            try {
+                iArr[ZlibWrapper.GZIP.ordinal()] = 1;
+            } catch (NoSuchFieldError e) {
+            }
+            try {
+                $SwitchMap$org$jboss$netty$handler$codec$compression$ZlibWrapper[ZlibWrapper.ZLIB.ordinal()] = 2;
+            } catch (NoSuchFieldError e2) {
+            }
+        }
+    }
+
+    private static ZlibWrapper determineWrapper(String acceptEncoding) {
+        float starQ = -1.0f;
+        float gzipQ = -1.0f;
+        float deflateQ = -1.0f;
+        for (String encoding : acceptEncoding.split(",")) {
+            float q = 1.0f;
+            int equalsPos = encoding.indexOf(61);
+            if (equalsPos != -1) {
+                try {
+                    q = Float.valueOf(encoding.substring(equalsPos + 1)).floatValue();
+                } catch (NumberFormatException e) {
+                    q = 0.0f;
+                }
+            }
+            if (encoding.indexOf(Subscriber.TOPIC_MESSAGE_TYPE_WILDCARD) >= 0) {
+                starQ = q;
+            } else if (encoding.indexOf("gzip") >= 0 && q > gzipQ) {
+                gzipQ = q;
+            } else if (encoding.indexOf("deflate") >= 0 && q > deflateQ) {
+                deflateQ = q;
+            }
+        }
+        if (gzipQ > 0.0f || deflateQ > 0.0f) {
+            if (gzipQ >= deflateQ) {
+                return ZlibWrapper.GZIP;
+            }
+            return ZlibWrapper.ZLIB;
+        } else if (starQ <= 0.0f) {
+            return null;
+        } else {
+            if (gzipQ == -1.0f) {
+                return ZlibWrapper.GZIP;
+            }
+            if (deflateQ == -1.0f) {
+                return ZlibWrapper.ZLIB;
+            }
+            return null;
+        }
+    }
+}

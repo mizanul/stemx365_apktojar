@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<apkInfo xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto">
+    <shortName>SampleAPK
+    </shortName>
+    <primary>true
+    </primary>
+    <commands>
+        <command name="Run Plan1" syntax="{&quot;name&quot;: &quot;runPlan1&quot;}"/>
+        <command name="Run Plan2" syntax="{&quot;name&quot;: &quot;runPlan2&quot;}"/>
+        <command name="Run Plan3" syntax="{&quot;name&quot;: &quot;runPlan3&quot;}"/>
+    </commands>
+</apkInfo>

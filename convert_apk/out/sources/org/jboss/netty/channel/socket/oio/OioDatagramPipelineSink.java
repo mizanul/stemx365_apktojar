@@ -1,0 +1,137 @@
+package org.jboss.netty.channel.socket.oio;
+
+import java.net.SocketAddress;
+import java.util.concurrent.Executor;
+import org.jboss.netty.channel.Channel;
+import org.jboss.netty.channel.ChannelEvent;
+import org.jboss.netty.channel.ChannelFuture;
+import org.jboss.netty.channel.ChannelFutureListener;
+import org.jboss.netty.channel.ChannelPipeline;
+import org.jboss.netty.channel.ChannelState;
+import org.jboss.netty.channel.ChannelStateEvent;
+import org.jboss.netty.channel.Channels;
+import org.jboss.netty.channel.MessageEvent;
+import org.jboss.netty.util.ThreadRenamingRunnable;
+import org.jboss.netty.util.internal.DeadLockProofWorker;
+
+class OioDatagramPipelineSink extends AbstractOioChannelSink {
+    private final Executor workerExecutor;
+
+    OioDatagramPipelineSink(Executor workerExecutor2) {
+        this.workerExecutor = workerExecutor2;
+    }
+
+    public void eventSunk(ChannelPipeline pipeline, ChannelEvent e) throws Exception {
+        OioDatagramChannel channel = (OioDatagramChannel) e.getChannel();
+        ChannelFuture future = e.getFuture();
+        if (e instanceof ChannelStateEvent) {
+            ChannelStateEvent stateEvent = (ChannelStateEvent) e;
+            ChannelState state = stateEvent.getState();
+            Object value = stateEvent.getValue();
+            int i = C08681.$SwitchMap$org$jboss$netty$channel$ChannelState[state.ordinal()];
+            if (i != 1) {
+                if (i != 2) {
+                    if (i != 3) {
+                        if (i == 4) {
+                            AbstractOioWorker.setInterestOps(channel, future, ((Integer) value).intValue());
+                        }
+                    } else if (value != null) {
+                        connect(channel, future, (SocketAddress) value);
+                    } else {
+                        OioDatagramWorker.disconnect(channel, future);
+                    }
+                } else if (value != null) {
+                    bind(channel, future, (SocketAddress) value);
+                } else {
+                    AbstractOioWorker.close(channel, future);
+                }
+            } else if (Boolean.FALSE.equals(value)) {
+                AbstractOioWorker.close(channel, future);
+            }
+        } else if (e instanceof MessageEvent) {
+            MessageEvent evt = (MessageEvent) e;
+            OioDatagramWorker.write(channel, future, evt.getMessage(), evt.getRemoteAddress());
+        }
+    }
+
+    /* renamed from: org.jboss.netty.channel.socket.oio.OioDatagramPipelineSink$1 */
+    static /* synthetic */ class C08681 {
+        static final /* synthetic */ int[] $SwitchMap$org$jboss$netty$channel$ChannelState;
+
+        static {
+            int[] iArr = new int[ChannelState.values().length];
+            $SwitchMap$org$jboss$netty$channel$ChannelState = iArr;
+            try {
+                iArr[ChannelState.OPEN.ordinal()] = 1;
+            } catch (NoSuchFieldError e) {
+            }
+            try {
+                $SwitchMap$org$jboss$netty$channel$ChannelState[ChannelState.BOUND.ordinal()] = 2;
+            } catch (NoSuchFieldError e2) {
+            }
+            try {
+                $SwitchMap$org$jboss$netty$channel$ChannelState[ChannelState.CONNECTED.ordinal()] = 3;
+            } catch (NoSuchFieldError e3) {
+            }
+            try {
+                $SwitchMap$org$jboss$netty$channel$ChannelState[ChannelState.INTEREST_OPS.ordinal()] = 4;
+            } catch (NoSuchFieldError e4) {
+            }
+        }
+    }
+
+    private void bind(OioDatagramChannel channel, ChannelFuture future, SocketAddress localAddress) {
+        boolean bound = false;
+        try {
+            channel.socket.bind(localAddress);
+            bound = true;
+            future.setSuccess();
+            Channels.fireChannelBound((Channel) channel, (SocketAddress) channel.getLocalAddress());
+            Executor executor = this.workerExecutor;
+            OioDatagramWorker oioDatagramWorker = new OioDatagramWorker(channel);
+            DeadLockProofWorker.start(executor, new ThreadRenamingRunnable(oioDatagramWorker, "Old I/O datagram worker (" + channel + ')'));
+            if (1 != 0 && 1 == 0) {
+                AbstractOioWorker.close(channel, future);
+            }
+        } catch (Throwable th) {
+            if (bound && 0 == 0) {
+                AbstractOioWorker.close(channel, future);
+            }
+            throw th;
+        }
+    }
+
+    private void connect(OioDatagramChannel channel, ChannelFuture future, SocketAddress remoteAddress) {
+        boolean bound = channel.isBound();
+        future.addListener(ChannelFutureListener.CLOSE_ON_FAILURE);
+        channel.remoteAddress = null;
+        try {
+            channel.socket.connect(remoteAddress);
+            future.setSuccess();
+            if (!bound) {
+                Channels.fireChannelBound((Channel) channel, (SocketAddress) channel.getLocalAddress());
+            }
+            Channels.fireChannelConnected((Channel) channel, (SocketAddress) channel.getRemoteAddress());
+            String threadName = "Old I/O datagram worker (" + channel + ')';
+            if (!bound) {
+                DeadLockProofWorker.start(this.workerExecutor, new ThreadRenamingRunnable(new OioDatagramWorker(channel), threadName));
+            } else {
+                Thread workerThread = channel.workerThread;
+                if (workerThread != null) {
+                    try {
+                        workerThread.setName(threadName);
+                    } catch (SecurityException e) {
+                    }
+                }
+            }
+            if (1 != 0 && 1 == 0) {
+                AbstractOioWorker.close(channel, future);
+            }
+        } catch (Throwable th) {
+            if (0 != 0 && 0 == 0) {
+                AbstractOioWorker.close(channel, future);
+            }
+            throw th;
+        }
+    }
+}
