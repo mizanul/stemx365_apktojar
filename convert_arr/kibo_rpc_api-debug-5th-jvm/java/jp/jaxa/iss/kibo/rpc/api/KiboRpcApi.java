@@ -174,7 +174,7 @@ extends Activity {
                     Log.v((String)"KiboRpcApi", (String)"[getCommandResult] Setting timeout");
                     if (counter > timeout) {
                         Log.v((String)"KiboRpcApi", (String)"[getCommandResult] return null");
-                        Object var7_10 = null;
+                        Result var = null;
         return null;
                     }
                 }

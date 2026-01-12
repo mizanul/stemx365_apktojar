@@ -18,10 +18,16 @@ echo "▶ Decompiling classes.jar with CFR..."
 DECOMPILE_DIR="$WORKDIR/java"
 mkdir -p "$DECOMPILE_DIR"
 
-API_GOV_SRC="api/src/main/java/gov"
-API_ORG_SRC="api/src/main/java/org"
+ORG_API_DIR="./org_api"
+DEST_API_DIR="./api"
 
-SRC_GETTER="api/src/main/java/jp/jaxa/iss/kibo/rpc/api/GetterNode.java"
+cp -rf "$DEST_API_DIR" "$ORG_API_DIR"
+
+
+API_GOV_SRC="$ORG_API_DIR/src/main/java/gov"
+API_ORG_SRC="$ORG_API_DIR/src/main/java/org"
+
+SRC_GETTER="$ORG_API_DIR/src/main/java/jp/jaxa/iss/kibo/rpc/api/GetterNode.java"
 DST_GETTER="$DECOMPILE_DIR/jp/jaxa/iss/kibo/rpc/api/GetterNode.java"
 
 echo "▶ Working directory: $WORKDIR"
@@ -45,7 +51,7 @@ java -jar /opt/cfr-0.152.jar "$CLASSES_JAR" \
     --caseinsensitivefs true \
     --comments false
 
-API_DIR="./api"
+
 
 
 echo "▶ Copying gov sources from api/..."
@@ -173,6 +179,15 @@ public class Looper {
 }
 EOF
 
+#ls -la "$ORG_API_DIR"/src
+rm -rf "$DEST_API_DIR"/src/main/java
+echo "▶ Coping java folder to api..."
+cp -rf "$DECOMPILE_DIR" "$DEST_API_DIR"/src/main/
+echo "▶ Removing org_api folder..."
+rm -rf "$ORG_API_DIR"
+
+exit 0
+
 # -----------------------------
 # Step 4: Compile Java code for JVM
 # -----------------------------
@@ -192,7 +207,6 @@ find "$DECOMPILE_DIR" -name "*.java" > sources.txt
 
 # Compile with all jars in libs
 javac -cp "$LIBS_DIR/*" -source 1.8 -target 1.8 -d "$OUTPUT_DIR" @sources.txt
-#javac -source 1.8 -target 1.8 -d out $(find ./java -name "*.java")
 rm sources.txt
 
 echo "✅ JVM-ready classes are in: $OUTPUT_DIR"

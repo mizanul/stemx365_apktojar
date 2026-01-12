@@ -1,0 +1,27 @@
+# --------------------------------
+# Dockerfile: gradle-build-java8
+# --------------------------------
+FROM ubuntu:22.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
+ENV PATH=$JAVA_HOME/bin:/opt/gradle/bin:$PATH
+
+# Install Java 8 + build tools
+RUN apt-get update && apt-get install -y \
+    openjdk-8-jdk \
+    unzip \
+    wget \
+    git \
+    zip \
+    bash \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Gradle (correct version name)
+ENV GRADLE_VERSION=8.4
+RUN wget -q https://services.gradle.org/distributions/gradle-${GRADLE_VERSION}-bin.zip \
+    && unzip gradle-${GRADLE_VERSION}-bin.zip \
+    && mv gradle-${GRADLE_VERSION} /opt/gradle \
+    && rm gradle-${GRADLE_VERSION}-bin.zip
+
+WORKDIR /workspace
