@@ -1,1 +1,0 @@
-docker run --rm -v $(pwd):/workspace aar-to-java-jvm kibo_rpc_api-debug-5th.aar
