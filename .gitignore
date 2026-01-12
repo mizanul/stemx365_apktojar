@@ -2,4 +2,6 @@
 *.apk
 *.mp4
 *.class
-*.jar
+classes.jar
+convert_arr/kibo_rpc_api-debug-5th-jvm/libs/
+convert_arr/libs/

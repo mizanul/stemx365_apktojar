@@ -1,8 +1,9 @@
 # KRPC API
 
+## To build 5th KRPC api 
 ```
 cd aonvert_arr
-./build_docker.sh
-./run_docker.sh
+./build_jar_or_apk.sh api
+
 ```
 
