@@ -27,6 +27,12 @@ cp -rf "$DEST_API_DIR" "$ORG_API_DIR"
 API_GOV_SRC="$ORG_API_DIR/src/main/java/gov"
 API_ORG_SRC="$ORG_API_DIR/src/main/java/org"
 
+API_SUB_SRC="$ORG_API_DIR/src/main/java/jp/jaxa/iss/kibo/rpc/api/sub"
+DEST_SUB_SRC="$DECOMPILE_DIR/jp/jaxa/iss/kibo/rpc/api"
+
+#cp -rf "$ORG_API_DIR"/src/main/java/jp/jaxa/iss/kibo/rpc/api/sub "$DECOMPILE_DIR/jp/jaxa/iss/kibo/rpc/api/"
+
+
 SRC_GETTER="$ORG_API_DIR/src/main/java/jp/jaxa/iss/kibo/rpc/api/GetterNode.java"
 DST_GETTER="$DECOMPILE_DIR/jp/jaxa/iss/kibo/rpc/api/GetterNode.java"
 
@@ -66,6 +72,9 @@ rm "$DECOMPILE_DIR"/jp/jaxa/iss/kibo/rpc/api/GetterNode.java
 cp "$SRC_GETTER" "$DST_GETTER"
 
 cp -r "$API_ORG_SRC" "$DECOMPILE_DIR/"
+
+cp -rf "$API_SUB_SRC" "$DEST_SUB_SRC/"
+
 
 # Example: fix Object return artifacts (manual review still recommended)
 sed -i 's/Object var[0-9_]\+/Result var/g' $(grep -rl "return var" "$DECOMPILE_DIR")

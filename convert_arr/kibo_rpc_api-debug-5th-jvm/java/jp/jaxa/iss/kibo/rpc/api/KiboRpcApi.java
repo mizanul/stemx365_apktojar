@@ -17,12 +17,10 @@ import gov.nasa.arc.astrobee.android.gs.MessageType;
 import gov.nasa.arc.astrobee.android.gs.StartGuestScienceService;
 import gov.nasa.arc.astrobee.ros.DefaultRobotFactory;
 import gov.nasa.arc.astrobee.ros.RobotConfiguration;
-import gov.nasa.arc.astrobee.types.ActionType;
 import gov.nasa.arc.astrobee.types.FlashlightLocation;
 import gov.nasa.arc.astrobee.types.FlightMode;
 import gov.nasa.arc.astrobee.types.PlannerType;
 import gov.nasa.arc.astrobee.types.Point;
-import gov.nasa.arc.astrobee.types.PoweredComponent;
 import gov.nasa.arc.astrobee.types.Quaternion;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -31,14 +29,13 @@ import java.io.OutputStream;
 import java.net.URI;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
 import java.util.Date;
-import java.util.List;
+import java.util.Iterator;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import jp.jaxa.iss.kibo.rpc.api.GetterNode;
 import jp.jaxa.iss.kibo.rpc.api.SetterNode;
-import jp.jaxa.iss.kibo.rpc.api.sub.GameManager;
+import jp.jaxa.iss.kibo.rpc.api.areas.AreaItemMap;
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.opencv.android.Utils;
@@ -48,7 +45,6 @@ public final class KiboRpcApi
 extends Activity {
     private GetterNode getterNode;
     private SetterNode setterNode;
-    private GameManager gameManager;
     private static final URI ROS_MASTER_URI = URI.create("http://llp:11311");
     private static final String EMULATOR_ROS_HOSTNAME = "hlp";
     private static final String NODE_NAME = "kibo_rpc_api";
@@ -66,12 +62,12 @@ extends Activity {
     private final String UNDOCK_START = "Undock Start";
     private final String UNDOCK_FINISH = "Undock Finish";
     private final String UNDOCK_ERROR = "Undock failed";
-    private final String TARGET_SNAPSHOT_START = "Taking snapshots of Target start";
-    private final String TARGET_TAKING_SNAPSHOT = "Taking a snapshot of Target";
-    private final String TARGET_SNAPSHOT_FINISH = "Taking snapshots of Target finish";
-    private final String START_MOVING_TO_GOAL = "Start moving to the goal";
     private final String SIGNAL_LIGHT_PERCHING_ARM = "Turn on the signal light and deploy the perching arm";
-    private final String AAR_VERSION = "3.1.0";
+    private final String TARGET_RECOGNITION_COMPLETE = "Target Item recognition is complete";
+    private final String TURN_ON_FOUND_PATTERN = "Turn on the found pattern";
+    private final String TURN_ON_RECOGNITION_PATTERN = "Turn on the recognition pattern";
+    private final String ROUNDING_COMPLETE = "rounding is complete";
+    private final String AAR_VERSION = "5.1.0";
     private final int APPROACH_TIMES_SNAPSHOT_SIMULATION = 1;
     private final int APPROACH_TIMES_SNAPSHOT_ISS = 2;
     private final int APPROACH_INTEVAL = 1000;
@@ -80,14 +76,13 @@ extends Activity {
     private final int UNDOCK_TIMEOUT_ON_SIM = 100;
     private final int MAX_IMAGES = 50;
     private final int MAX_IMAGE_SIZE = 1228800;
-    private final float ARM_PAN = 0.0f;
-    private final float DEPLOY_ARM_TILT = 90.0f;
-    private final float STOW_ARM_TILT = 180.0f;
     private final int BLINK_NUM = 2;
     private final int WAIT_AFTER_BLINK = 1000;
-    private final int WAIT_AFTER_GRIPPER_OPEN = 2000;
+    private final float FLASH_LIGHT_MAX_IN_FINAL = 0.01f;
     private final float FLASH_LIGHT_MIN = 0.0f;
-    private final float FLASH_LIGHT_REPORT_MISSION_COMPLETION = 0.05f;
+    private final float FLASH_LIGHT_REPORT_ROUNDING_COMPLETION = 0.05f;
+    private final boolean LIGHT_MODE_FRONT = true;
+    private final boolean LIGHT_MODE_BACK = false;
     private final double[] NAVCAM_CAMERA_MATRIX_SIMULATION = new double[]{523.10575, 0.0, 635.434258, 0.0, 534.765913, 500.335102, 0.0, 0.0, 1.0};
     private final double[] NAVCAM_CAMERA_MATRIX_ISS = new double[]{608.8073, 0.0, 632.53684, 0.0, 607.61439, 549.08386, 0.0, 0.0, 1.0};
     private final double[] NAVCAM_DISTORTION_COEFFICIENTS_SIMULATION = new double[]{-0.164787, 0.020375, -0.001572, -3.69E-4, 0.0};
@@ -96,25 +91,10 @@ extends Activity {
     private final double[] DOCKCAM_CAMERA_MATRIX_ISS = new double[]{753.51021, 0.0, 631.11512, 0.0, 751.3611, 508.69621, 0.0, 0.0, 1.0};
     private final double[] DOCKCAM_DISTORTION_COEFFICIENTS_SIMULATION = new double[]{-0.215168, 0.044354, 0.003615, 0.005093, 0.0};
     private final double[] DOCKCAM_DISTORTION_COEFFICIENTS_ISS = new double[]{-0.411405, 0.17724, -0.017145, 0.006421, 0.0};
-    private final List<Point> POINT_POSITIONS = new ArrayList<Point>(){
-        {
-            this.add(new Point(9.815, -9.806, 4.293));
-            this.add(new Point(11.2746, -9.92284, 5.2988));
-            this.add(new Point(10.612, -9.0709, 4.48));
-            this.add(new Point(10.71, -7.7, 4.48));
-            this.add(new Point(10.51, -6.7185, 5.1804));
-            this.add(new Point(11.114, -7.9756, 5.3393));
-            this.add(new Point(11.355, -8.9929, 4.7818));
-            this.add(new Point(11.369, -8.5518, 4.48));
-            this.add(new Point(11.143, -6.7607, 4.9654));
-        }
-    };
     private final float DISTANCE_THRESHOLD = 0.3f;
-    private boolean calledMoveTo = false;
-    private boolean mPlaying = false;
-    private boolean finishing = false;
-    private int nearbyTargetId = 0;
-    private boolean laserActivationFlag = false;
+    private boolean reportCompletion = false;
+    private boolean tookTargetItemSnap = false;
+    private AreaItemMap areaItemMap;
 
     private void sendExceptionMessage(String errmsg, Exception err) {
         Log.v((String)"KiboRpcApi", (String)"[Start] sendExceptionMessage");
@@ -133,7 +113,7 @@ extends Activity {
 
     private KiboRpcApi(StartGuestScienceService startGuestScienceService) {
         Log.v((String)"KiboRpcApi", (String)"[Start] KiboRpcApi");
-        Log.i((String)"KiboRpcApi", (String)"[AARVersion] AAR version 3.1.0");
+        Log.i((String)"KiboRpcApi", (String)"[AARVersion] AAR version 5.1.0");
         this.configureRobot();
         this.factory = new DefaultRobotFactory(this.robotConfiguration);
         this.gsService = startGuestScienceService;
@@ -141,8 +121,7 @@ extends Activity {
             this.robot = this.factory.getRobot();
             this.getterNode = GetterNode.getInstance();
             this.setterNode = SetterNode.getInstance();
-            this.gameManager = GameManager.getInstance(startGuestScienceService);
-            this.gameManager.start();
+            this.areaItemMap = new AreaItemMap();
         }
         catch (AstrobeeException e) {
             this.sendExceptionMessage("[Constructor] Error with Astrobee", (Exception)((Object)e));
@@ -358,6 +337,10 @@ extends Activity {
 
     public Result flashlightControlFront(float brightness) {
         Log.i((String)"KiboRpcApi", (String)"[Start] flashlightControlFront");
+        if (!this.getterNode.getOnSimulation() && brightness > 0.01f) {
+            Log.v((String)"KiboRpcApi", (String)"[flashlightControlFront] In the final, the maximum value of the light is set to 0.01.");
+            brightness = 0.01f;
+        }
         Log.i((String)"KiboRpcApi", (String)("Parameters: brightness == " + brightness));
         PendingResult pendingResult = null;
         try {
@@ -367,13 +350,16 @@ extends Activity {
             this.sendExceptionMessage("[flashlightControlFront] Node not ready or dead.", (Exception)((Object)e));
             return null;
         }
-        this.robot.setFlashlightBrightness(FlashlightLocation.FRONT, brightness);
         Log.i((String)"KiboRpcApi", (String)"[Finish] flashlightControlFront");
         return this.getCommandResult(pendingResult, false, -1);
     }
 
     public Result flashlightControlBack(float brightness) {
         Log.i((String)"KiboRpcApi", (String)"[Start] flashlightControlBack");
+        if (!this.getterNode.getOnSimulation() && brightness > 0.01f) {
+            Log.v((String)"KiboRpcApi", (String)"[flashlightControlBack] In the final, the maximum value of the light is set to 0.01.");
+            brightness = 0.01f;
+        }
         Log.i((String)"KiboRpcApi", (String)("Parameters: brightness == " + brightness));
         PendingResult pendingResult = null;
         try {
@@ -384,6 +370,29 @@ extends Activity {
             return null;
         }
         Log.i((String)"KiboRpcApi", (String)"[Finish] flashlightControlBack");
+        return this.getCommandResult(pendingResult, false, -1);
+    }
+
+    private Result flashlightControl(float brightness, boolean front) {
+        FlashlightLocation flloc = FlashlightLocation.FRONT;
+        if (front) {
+            Log.i((String)"KiboRpcApi", (String)"[Start] flashlightControl: front");
+            Log.i((String)"KiboRpcApi", (String)("Parameters: brightness == " + brightness));
+            flloc = FlashlightLocation.FRONT;
+        } else {
+            Log.i((String)"KiboRpcApi", (String)"[Start] flashlightControl: back");
+            Log.i((String)"KiboRpcApi", (String)("Parameters: brightness == " + brightness));
+            flloc = FlashlightLocation.BACK;
+        }
+        PendingResult pendingResult = null;
+        try {
+            pendingResult = this.robot.setFlashlightBrightness(flloc, brightness);
+        }
+        catch (AstrobeeRuntimeException e) {
+            this.sendExceptionMessage("[flashlightControlFront] Node not ready or dead.", (Exception)((Object)e));
+            return null;
+        }
+        Log.i((String)"KiboRpcApi", (String)"[Finish] flashlightControlFront");
         return this.getCommandResult(pendingResult, false, -1);
     }
 
@@ -423,14 +432,6 @@ extends Activity {
                 return null;
             }
             result = this.getCommandResult(pendingResult, printRobotPosition, -1);
-            if (this.getterNode.getOnSimulation()) {
-                Log.v((String)"KiboRpcApi", (String)("[moveTo] OnSimulation: " + this.getterNode.getOnSimulation()));
-                if (this.isActiveTarget()) {
-                    Log.v((String)"KiboRpcApi", (String)"[moveTo] Set LaserActivationFlag: true");
-                    this.laserActivationFlag = true;
-                }
-            }
-            this.calledMoveTo = true;
         }
         Log.i((String)"KiboRpcApi", (String)"[Finish] moveTo");
         return result;
@@ -461,122 +462,40 @@ extends Activity {
         return this.moveTo(endPoint, orientation, printRobotPosition);
     }
 
-    private boolean isActiveTarget() {
-        Log.v((String)"KiboRpcApi", (String)"[Start] isActiveTarget");
-        boolean isActive = false;
-        Kinematics k = this.getTrustedRobotKinematics();
-        if (k == null) {
-            Log.i((String)"KiboRpcApi", (String)("[isActiveTarget] k == " + k));
-            Log.e((String)"KiboRpcApi", (String)"[isActiveTarget] Cannot get robot kinematics.");
-            return false;
-        }
-        Point currPosition = k.getPosition();
-        if (currPosition == null) {
-            Log.i((String)"KiboRpcApi", (String)("[isActiveTarget] currPosition == " + currPosition));
-            Log.e((String)"KiboRpcApi", (String)"[isActiveTarget] Cannot get current position.");
-            return false;
-        }
-        double smallerDistance = Double.MAX_VALUE;
-        List<Integer> activeTargets = this.gameManager.getActiveTargets();
-        for (int activeTargetId : activeTargets) {
-            Point checkPoint = new Point(currPosition.getX() - this.POINT_POSITIONS.get(activeTargetId).getX(), currPosition.getY() - this.POINT_POSITIONS.get(activeTargetId).getY(), currPosition.getZ() - this.POINT_POSITIONS.get(activeTargetId).getZ());
-            double distance = Math.sqrt(Math.pow(checkPoint.getX(), 2.0) + Math.pow(checkPoint.getY(), 2.0) + Math.pow(checkPoint.getZ(), 2.0));
-            if (!(distance <= (double)0.3f) || !(distance <= smallerDistance)) continue;
-            Log.v((String)"KiboRpcApi", (String)("[isActiveTarget] Near active target [target_id: " + activeTargetId + "]"));
-            Log.v((String)"KiboRpcApi", (String)("[isActiveTarget] Set nearbyTargetId [target_id: " + activeTargetId + "]"));
-            smallerDistance = distance;
-            this.nearbyTargetId = activeTargetId;
-            isActive = true;
-        }
-        Log.v((String)"KiboRpcApi", (String)"[Finish] isActiveTarget");
-        return isActive;
-    }
-
-    public Result laserControl(boolean state) {
-        PendingResult pendingResult;
-        block6: {
-            Log.i((String)"KiboRpcApi", (String)"[Start] laserControl");
-            Log.i((String)"KiboRpcApi", (String)("Parameters: state == " + state));
-            if (this.getterNode.getOnSimulation() && !this.laserActivationFlag) {
-                Log.v((String)"KiboRpcApi", (String)("[laserControl] OnSimulation: " + this.getterNode.getOnSimulation()));
-                Log.v((String)"KiboRpcApi", (String)("[laserControl] laserActivationFlag: " + this.laserActivationFlag));
-                Log.i((String)"KiboRpcApi", (String)"[Finish] laserControl (SKIP)");
-                return null;
-            }
-            pendingResult = null;
-            try {
-                if (state) {
-                    Log.v((String)"KiboRpcApi", (String)"[laserControl] Power on");
-                    pendingResult = this.robot.powerOnItem(PoweredComponent.LASER_POINTER);
-                    try {
-                        Thread.sleep(2000L);
-                        break block6;
-                    }
-                    catch (InterruptedException e) {
-                        Log.e((String)"KiboRpcApi", (String)"[laserControl] It was not possible to get a trusted kinematics. Sorry.");
-                        return null;
-                    }
-                }
-                Log.v((String)"KiboRpcApi", (String)"[laserControl] Power off");
-                pendingResult = this.robot.powerOffItem(PoweredComponent.LASER_POINTER);
-            }
-            catch (AstrobeeRuntimeException e) {
-                this.sendExceptionMessage("[laserControl] Node not ready or dead.", (Exception)((Object)e));
-                return null;
-            }
-        }
-        Log.i((String)"KiboRpcApi", (String)"[Finish] laserControl");
-        return this.getCommandResult(pendingResult, false, -1);
-    }
-
-    private Result perchingArmControl(boolean state) {
-        Log.v((String)"KiboRpcApi", (String)"[Start] perchingArmControl");
-        Log.i((String)"KiboRpcApi", (String)("Parameters: state == " + state));
-        PendingResult pendingResult = null;
+    private void setSignalStateFoundPattern() {
         try {
-            if (state) {
-                Log.v((String)"KiboRpcApi", (String)"[perchingArmControl] deploy");
-                pendingResult = this.robot.armPanAndTilt(0.0f, 90.0f, ActionType.BOTH);
-            } else {
-                Log.v((String)"KiboRpcApi", (String)"[perchingArmControl] stow");
-                pendingResult = this.robot.armPanAndTilt(0.0f, 180.0f, ActionType.BOTH);
-            }
+            JSONObject data = new JSONObject();
+            Log.v((String)"KiboRpcApi", (String)"[Start] setSignalStateFoundPattern");
+            this.setterNode.setSignalState((byte)4, 2);
+            this.setterNode.setSignalState((byte)5, 1);
+            this.setterNode.setSignalState((byte)3, 1);
+            data.put("signal_light", (Object)"Turn on the found pattern");
+            this.gsService.sendData(MessageType.JSON, "data", data.toString());
+            Log.v((String)"KiboRpcApi", (String)"[Finish] setSignalStateFoundPattern");
         }
-        catch (AstrobeeRuntimeException e) {
-            this.sendExceptionMessage("[perchingArmControl] Node not ready or dead.", (Exception)((Object)e));
-            return null;
+        catch (JSONException e) {
+            this.sendExceptionMessage("[setSignalStateFoundPattern] Internal error occurred. Unable to serialize data to JSON.", (Exception)((Object)e));
         }
-        Log.v((String)"KiboRpcApi", (String)"[Finish] perchingArmControl");
-        return this.getCommandResult(pendingResult, false, -1);
+        catch (Exception e) {
+            this.sendExceptionMessage("[setSignalStateFoundPattern] Internal error occurred. Unable to send data to gds.", e);
+        }
     }
 
-    private Result gripperControl(boolean open) {
-        Log.v((String)"KiboRpcApi", (String)"[Start] gripperControl");
-        Log.i((String)"KiboRpcApi", (String)("Parameters: open == " + open));
-        PendingResult pendingResult = null;
+    private void setSignalStateRecognitionPattern() {
         try {
-            pendingResult = this.robot.gripperControl(open);
+            JSONObject data = new JSONObject();
+            Log.v((String)"KiboRpcApi", (String)"[Start] setSignalStateRecognitionPattern");
+            this.setterNode.setSignalState((byte)3, 1);
+            data.put("signal_light", (Object)"Turn on the recognition pattern");
+            this.gsService.sendData(MessageType.JSON, "data", data.toString());
+            Log.v((String)"KiboRpcApi", (String)"[Finish] setSignalStateRecognitionPattern");
         }
-        catch (AstrobeeRuntimeException e) {
-            this.sendExceptionMessage("[gripperControl] Node not ready or dead.", (Exception)((Object)e));
-            return null;
+        catch (JSONException e) {
+            this.sendExceptionMessage("[setSignalStateRecognitionPattern] Internal error occurred. Unable to serialize data to JSON.", (Exception)((Object)e));
         }
-        Log.v((String)"KiboRpcApi", (String)"[Finish] gripperControl");
-        return this.getCommandResult(pendingResult, false, -1);
-    }
-
-    private void setSignalStateCorrectPattern() {
-        Log.v((String)"KiboRpcApi", (String)"[Start] setSignalStateCorrectPattern");
-        this.setterNode.setSignalState((byte)4, 2);
-        this.setterNode.setSignalState((byte)5, 1);
-        this.setterNode.setSignalState((byte)3, 1);
-        Log.v((String)"KiboRpcApi", (String)"[Finish] setSignalStateCorrectPattern");
-    }
-
-    private void setSignalStateIncorrectPattern() {
-        Log.v((String)"KiboRpcApi", (String)"[Start] setSignalStateIncorrectPattern");
-        this.setterNode.setSignalState((byte)7, 2);
-        Log.v((String)"KiboRpcApi", (String)"[Finish] setSignalStateIncorrectPattern");
+        catch (Exception e) {
+            this.sendExceptionMessage("[setSignalStateRecognitionPattern] Internal error occurred. Unable to send data to gds.", e);
+        }
     }
 
     public boolean startMission() {
@@ -615,11 +534,6 @@ extends Activity {
                 data.put("status", (Object)"Mission Start");
                 this.gsService.sendData(MessageType.JSON, "data", data.toString());
                 Log.i((String)"KiboRpcApi", (String)("Mission Start: " + time));
-            }
-            if (!this.calledMoveTo) {
-                this.gameManager.startMission();
-            } else {
-                Log.v((String)"KiboRpcApi", (String)"[startMission] astrobee is moved. Unable to retry the start mission");
             }
         }
         catch (JSONException e) {
@@ -668,72 +582,56 @@ extends Activity {
         }
     }
 
-    public void notifyGoingToGoal() {
-        Log.i((String)"KiboRpcApi", (String)"[Start] notifyGoingToGoal");
+    public void notifyRecognitionItem() {
+        Log.i((String)"KiboRpcApi", (String)"[Start] notifyRecognitionItem");
         try {
-            Log.v((String)"KiboRpcApi", (String)"[notifyGoingToGoal] Start moving to the goal");
+            Log.v((String)"KiboRpcApi", (String)"[notifyRecognitionItem] Target Item recognition is complete");
             JSONObject data = new JSONObject();
-            data.put("status", (Object)"Start moving to the goal");
+            data.put("status", (Object)"Target Item recognition is complete");
             this.gsService.sendData(MessageType.JSON, "data", data.toString());
             if (!this.getterNode.getOnSimulation()) {
-                this.setSignalStateIncorrectPattern();
+                this.setSignalStateRecognitionPattern();
                 this.setterNode.setSignalState((byte)17, 1);
             }
         }
         catch (JSONException e) {
-            this.sendExceptionMessage("[notifyGoingToGoal] Internal error was occurred. Unable to serialize data to JSON.", (Exception)((Object)e));
+            this.sendExceptionMessage("[notifyRecognitionItem] Internal error was occurred. Unable to serialize data to JSON.", (Exception)((Object)e));
             return;
         }
         catch (Exception e) {
-            this.sendExceptionMessage("[notifyGoingToGoal] Internal error was occurred. Unable to send data to gds.", e);
+            this.sendExceptionMessage("[notifyRecognitionItem] Internal error was occurred. Unable to send data to gds.", e);
             return;
         }
-        Log.i((String)"KiboRpcApi", (String)"[Finish] notifyGoingToGoal");
+        Log.i((String)"KiboRpcApi", (String)"[Finish] notifyRecognitionItem");
     }
 
-    public boolean reportMissionCompletion(String report) {
+    public boolean reportRoundingCompletion() {
+        Log.i((String)"KiboRpcApi", (String)"[Start] reportRoundingCompletion");
         try {
-            Log.i((String)"KiboRpcApi", (String)"[Start] reportMissionCompletion");
-            Log.i((String)"KiboRpcApi", (String)("Parameters: report == " + report));
-            if (!this.finishing) {
-                Log.v((String)"KiboRpcApi", (String)"[reportMissionCompletion] Make finish message");
+            if (!this.reportCompletion) {
+                Log.v((String)"KiboRpcApi", (String)"[reportRoundingCompletion] Make rounding is complete message");
                 JSONObject data = new JSONObject();
-                data.put("t_stamp_finish", (Object)this.df.format(new Date(System.currentTimeMillis())));
-                data.put("status", (Object)"Mission Finish");
-                this.gsService.sendData(MessageType.JSON, "data", data.toString());
-                this.finishing = true;
-            }
-        }
-        catch (JSONException e) {
-            this.sendExceptionMessage("[reportMissionCompletion] Internal error was occurred. Unable to serialize data to JSON.", (Exception)((Object)e));
-            return false;
-        }
-        catch (Exception e) {
-            this.sendExceptionMessage("[reportMissionCompletion] Internal error was occurred. Unable to send data to gds.", e);
-            return false;
-        }
-        if (!this.getterNode.getOnSimulation()) {
-            Log.v((String)"KiboRpcApi", (String)"[reportMissionCompletion] getOnSimulation: False");
-            Result stopResult = this.stopAllMotion();
-            if (stopResult == null || !stopResult.hasSucceeded()) {
-                Log.i((String)"KiboRpcApi", (String)("[reportMissionCompletion] stopResult == " + stopResult));
-                Log.e((String)"KiboRpcApi", (String)"[reportMissionCompletion] Cannot stop all motion.");
-            }
-        }
-        try {
-            if (!this.mPlaying) {
-                Log.v((String)"KiboRpcApi", (String)"[reportMissionCompletion] Do getRobotKinematics");
+                data.put("t_stamp_rounding_completion", (Object)this.df.format(new Date(System.currentTimeMillis())));
+                data.put("status", (Object)"rounding is complete");
+                JSONObject areamap = new JSONObject();
+                areamap = this.areaItemMap.getAreaItemMapJson();
+                Iterator jsonkey = areamap.keys();
+                while (jsonkey.hasNext()) {
+                    String keystr = (String)jsonkey.next();
+                    data.put(keystr, (Object)areamap.getJSONArray(keystr));
+                }
+                Log.v((String)"KiboRpcApi", (String)"[reportRoundingCompletion] Do getRobotKinematics");
                 Kinematics kinematics = this.getRobotKinematics();
                 if (kinematics == null || kinematics.getPosition() == null || kinematics.getOrientation() == null) {
-                    Log.e((String)"KiboRpcApi", (String)"[reportMissionCompletion] It was not possible to get a kinematics.");
+                    Log.e((String)"KiboRpcApi", (String)"[reportRoundingCompletion] It was not possible to get a kinematics.");
                     if (kinematics == null) {
-                        Log.e((String)"KiboRpcApi", (String)"[reportMissionCompletion] kinematics is null.");
+                        Log.e((String)"KiboRpcApi", (String)"[reportRoundingCompletion] kinematics is null.");
                     }
                     if (kinematics.getPosition() == null) {
-                        Log.e((String)"KiboRpcApi", (String)"[reportMissionCompletion] kinematics.getPosition() is null.");
+                        Log.e((String)"KiboRpcApi", (String)"[reportRoundingCompletion] kinematics.getPosition() is null.");
                     }
                     if (kinematics.getOrientation() == null) {
-                        Log.e((String)"KiboRpcApi", (String)"[reportMissionCompletion] kinematics.getOrientation() is null.");
+                        Log.e((String)"KiboRpcApi", (String)"[reportRoundingCompletion] kinematics.getOrientation() is null.");
                     }
                     return false;
                 }
@@ -744,145 +642,115 @@ extends Activity {
                 String orientationY = String.format("%.3f", Float.valueOf(kinematics.getOrientation().getY()));
                 String orientationZ = String.format("%.3f", Float.valueOf(kinematics.getOrientation().getZ()));
                 String orientationW = String.format("%.3f", Float.valueOf(kinematics.getOrientation().getW()));
-                JSONObject data = new JSONObject();
-                data.put("point_pos", (Object)("[ posX : " + positionX + ", posY : " + positionY + ", posZ " + positionZ + ", quaX: " + orientationX + ", quaY: " + orientationY + ", quaZ: " + orientationZ + ", quaW: " + orientationW + " ]"));
-                data.put("t_stamp_signal_light", (Object)this.df.format(new Date(System.currentTimeMillis())));
-                data.put("status", (Object)"Turn on the signal light and deploy the perching arm");
-                data.put("qr_info", (Object)report);
+                data.put("rounding_point_pos", (Object)("[ posX : " + positionX + ", posY : " + positionY + ", posZ " + positionZ + ", quaX: " + orientationX + ", quaY: " + orientationY + ", quaZ: " + orientationZ + ", quaW: " + orientationW + " ]"));
                 this.gsService.sendData(MessageType.JSON, "data", data.toString());
                 for (int i = 0; i < 2; ++i) {
-                    Log.v((String)"KiboRpcApi", (String)("[reportMissionCompletion] Count: " + i));
-                    this.flashlightControlFront(0.05f);
-                    this.flashlightControlBack(0.05f);
-                    this.flashlightControlFront(0.0f);
-                    this.flashlightControlBack(0.0f);
+                    Log.v((String)"KiboRpcApi", (String)("[reportRoundingCompletion] Count: " + i));
+                    this.flashlightControl(0.05f, true);
+                    this.flashlightControl(0.05f, false);
+                    this.flashlightControl(0.0f, true);
+                    this.flashlightControl(0.0f, false);
                 }
                 Thread.sleep(1000L);
-                if (!this.getterNode.getOnSimulation()) {
-                    Log.v((String)"KiboRpcApi", (String)"[reportMissionCompletion] getOnSimulation: False");
-                    String correctReport = this.gameManager.getCorrectReport();
-                    Log.v((String)"KiboRpcApi", (String)("[reportMissionCompletion] correctReport: " + correctReport));
-                    if (correctReport != null && correctReport.equals(report)) {
-                        Result closeArmResult;
-                        Result openGripResult;
-                        Log.v((String)"KiboRpcApi", (String)"[reportMissionCompletion] report is correct.");
-                        Log.v((String)"KiboRpcApi", (String)"[reportMissionCompletion] Set SignalState");
-                        this.setSignalStateCorrectPattern();
-                        Result openArmResult = this.perchingArmControl(true);
-                        if (openArmResult == null) {
-                            Log.i((String)"KiboRpcApi", (String)("[reportMissionCompletion] arm deploy Result == " + openArmResult));
-                            Log.e((String)"KiboRpcApi", (String)"[reportMissionCompletion] Cannot deploy arm.");
-                        }
-                        if ((openGripResult = this.gripperControl(true)) == null) {
-                            Log.i((String)"KiboRpcApi", (String)("[reportMissionCompletion] gripper open Result == " + openGripResult));
-                            Log.e((String)"KiboRpcApi", (String)"[reportMissionCompletion] Cannot open gripper.");
-                        }
-                        Thread.sleep(2000L);
-                        Result closeGripResult = this.gripperControl(false);
-                        if (closeGripResult == null) {
-                            Log.i((String)"KiboRpcApi", (String)("[reportMissionCompletion] gripper close Result == " + closeGripResult));
-                            Log.e((String)"KiboRpcApi", (String)"[reportMissionCompletion] Cannot close gripper.");
-                        }
-                        if ((closeArmResult = this.perchingArmControl(false)) == null) {
-                            Log.i((String)"KiboRpcApi", (String)("[reportMissionCompletion] arm stow Result == " + closeArmResult));
-                            Log.e((String)"KiboRpcApi", (String)"[reportMissionCompletion] Cannot stow arm.");
-                        }
-                    } else {
-                        Log.v((String)"KiboRpcApi", (String)"[reportMissionCompletion] report is incorrect.");
-                        Log.v((String)"KiboRpcApi", (String)"[reportMissionCompletion] Set SignalState");
-                        this.setSignalStateIncorrectPattern();
-                    }
-                    Log.v((String)"KiboRpcApi", (String)"[reportMissionCompletion] Set SignalState");
-                    this.setterNode.setSignalState((byte)17, 1);
-                    Result stopResult = this.stopAllMotion();
-                    if (stopResult == null || !stopResult.hasSucceeded()) {
-                        Log.i((String)"KiboRpcApi", (String)("[reportMissionCompletion] stopResult == " + stopResult));
-                        Log.e((String)"KiboRpcApi", (String)"[reportMissionCompletion] Cannot stop all motion.");
-                    }
-                }
-                this.mPlaying = true;
-            }
-        }
-        catch (Exception e) {
-            this.sendExceptionMessage("[reportMissionCompletion] Internal error was occurred.", e);
-            this.mPlaying = false;
-            return false;
-        }
-        Log.i((String)"KiboRpcApi", (String)"[Finish] reportMissionCompletion");
-        return true;
-    }
-
-    public void takeTargetSnapshot(int targetId) {
-        Log.i((String)"KiboRpcApi", (String)"[Start] takeTargetSnapshot");
-        Log.i((String)"KiboRpcApi", (String)("Parameters: targetId == " + targetId));
-        try {
-            List<Integer> activeTargets = this.gameManager.getActiveTargets();
-            int phaseNumber = this.gameManager.getCurrentPhaseNumber();
-            boolean result = true;
-            if (this.getterNode.getOnSimulation() && activeTargets.contains(targetId) && this.nearbyTargetId == targetId || !this.getterNode.getOnSimulation() && activeTargets.contains(targetId)) {
-                int approach_time = 1;
-                if (!this.getterNode.getOnSimulation()) {
-                    Log.v((String)"KiboRpcApi", (String)"[takeTargetSnapshot] getOnSimulation: False");
-                    Log.v((String)"KiboRpcApi", (String)"[takeTargetSnapshot] Set approach_time");
-                    approach_time = 2;
-                }
-                result = this.takeSnapshot(phaseNumber, targetId, approach_time);
-            } else if (!activeTargets.contains(targetId)) {
-                JSONObject data = new JSONObject();
-                Log.e((String)"KiboRpcApi", (String)"[takeTargetSnapshot] Fail to deactivate the target.");
-                data.put("snapshot_inactive", (Object)String.format("Target is inactive [ target_id: %d ]", targetId));
-                data.put("target_info", (Object)this.getTargetInfoObject(phaseNumber, targetId));
-                this.gsService.sendData(MessageType.JSON, "data", data.toString());
-            }
-            if (this.getterNode.getOnSimulation() && this.nearbyTargetId != targetId) {
-                Log.e((String)"KiboRpcApi", (String)String.format("[takeTargetSnapshot] target is unmatch. Expected target is %d.", this.nearbyTargetId));
-            }
-            if (result) {
-                this.laserControl(false);
-                this.nearbyTargetId = 0;
-                this.laserActivationFlag = false;
+                this.reportCompletion = true;
             }
         }
         catch (JSONException e) {
-            this.sendExceptionMessage("[takeTargetSnapshot] Internal error was occurred. Unable to serialize data to JSON.", (Exception)((Object)e));
+            this.sendExceptionMessage("[reportRoundingCompletion] Internal error was occurred. Unable to serialize data to JSON.", (Exception)((Object)e));
+            this.reportCompletion = false;
+            return false;
+        }
+        catch (Exception e) {
+            this.sendExceptionMessage("[reportRoundingCompletion] Internal error was occurred.", e);
+            this.reportCompletion = false;
+            return false;
+        }
+        Log.i((String)"KiboRpcApi", (String)"[Finish] reportRoundingCompletion");
+        return true;
+    }
+
+    public void takeTargetItemSnapshot() {
+        Log.i((String)"KiboRpcApi", (String)"[Start] takeTargetItemSnapshot");
+        try {
+            if (!this.tookTargetItemSnap) {
+                boolean result = true;
+                int approach_time = 1;
+                if (!this.getterNode.getOnSimulation()) {
+                    Log.v((String)"KiboRpcApi", (String)"[takeTargetItemSnapshot] getOnSimulation: False");
+                    Log.v((String)"KiboRpcApi", (String)"[takeTargetItemSnapshot] Set approach_time");
+                    approach_time = 2;
+                }
+                if (!(result = this.takeSnapshot(approach_time))) {
+                    Log.e((String)"KiboRpcApi", (String)"[takeTargetItemSnapshot] Fail to Take the targetItem Snapshot.");
+                }
+                Log.v((String)"KiboRpcApi", (String)"[takeTargetItemSnapshot] Make finish message");
+                JSONObject data = new JSONObject();
+                data.put("t_stamp_finish", (Object)this.df.format(new Date(System.currentTimeMillis())));
+                data.put("status", (Object)"Mission Finish");
+                this.gsService.sendData(MessageType.JSON, "data", data.toString());
+                Log.v((String)"KiboRpcApi", (String)"[takeTargetItemSnapshot] Do getRobotKinematics");
+                Kinematics kinematics = this.getRobotKinematics();
+                if (kinematics != null && kinematics.getPosition() != null && kinematics.getOrientation() != null) {
+                    String positionX = String.format("%.3f", kinematics.getPosition().getX());
+                    String positionY = String.format("%.3f", kinematics.getPosition().getY());
+                    String positionZ = String.format("%.3f", kinematics.getPosition().getZ());
+                    String orientationX = String.format("%.3f", Float.valueOf(kinematics.getOrientation().getX()));
+                    String orientationY = String.format("%.3f", Float.valueOf(kinematics.getOrientation().getY()));
+                    String orientationZ = String.format("%.3f", Float.valueOf(kinematics.getOrientation().getZ()));
+                    String orientationW = String.format("%.3f", Float.valueOf(kinematics.getOrientation().getW()));
+                    data = new JSONObject();
+                    data.put("found_point_pos", (Object)("[ posX : " + positionX + ", posY : " + positionY + ", posZ " + positionZ + ", quaX: " + orientationX + ", quaY: " + orientationY + ", quaZ: " + orientationZ + ", quaW: " + orientationW + " ]"));
+                    this.gsService.sendData(MessageType.JSON, "data", data.toString());
+                } else {
+                    Log.e((String)"KiboRpcApi", (String)"[takeTargetItemSnapshot] It was not possible to get a kinematics.");
+                    if (kinematics == null) {
+                        Log.e((String)"KiboRpcApi", (String)"[takeTargetItemSnapshot] kinematics is null.");
+                    }
+                    if (kinematics.getPosition() == null) {
+                        Log.e((String)"KiboRpcApi", (String)"[takeTargetItemSnapshot] kinematics.getPosition() is null.");
+                    }
+                    if (kinematics.getOrientation() == null) {
+                        Log.e((String)"KiboRpcApi", (String)"[takeTargetItemSnapshot] kinematics.getOrientation() is null.");
+                    }
+                }
+                if (!this.getterNode.getOnSimulation()) {
+                    Log.v((String)"KiboRpcApi", (String)"[takeTargetItemSnapshot] getOnSimulation: False");
+                    Log.v((String)"KiboRpcApi", (String)"[takeTargetItemSnapshot] Set SignalState");
+                    this.setSignalStateFoundPattern();
+                    this.setterNode.setSignalState((byte)17, 1);
+                }
+                this.tookTargetItemSnap = true;
+            }
+        }
+        catch (JSONException e) {
+            this.sendExceptionMessage("[takeTargetItemSnapshot] Internal error was occurred. Unable to serialize data to JSON.", (Exception)((Object)e));
+            this.tookTargetItemSnap = false;
             return;
         }
         catch (Exception e) {
-            this.sendExceptionMessage("[takeTargetSnapshot] Internal error was occurred. Unable to send data to gds.", e);
+            this.sendExceptionMessage("[takeTargetItemSnapshot] Internal error was occurred.", e);
+            this.tookTargetItemSnap = false;
             return;
         }
-        Log.i((String)"KiboRpcApi", (String)"[Finish] takeTargetSnapshot");
+        Log.i((String)"KiboRpcApi", (String)"[Finish] takeTargetItemSnapshot");
     }
 
-    private boolean takeSnapshot(int phaseNumber, int targetId, int approach_times) {
+    private boolean takeSnapshot(int approach_times) {
         try {
             Log.v((String)"KiboRpcApi", (String)"[Start] takeSnapshot");
-            JSONObject data = null;
+            Object data = null;
             for (int i = 1; i <= approach_times; ++i) {
                 Log.v((String)"KiboRpcApi", (String)("[takeSnapshot] Count: " + i));
                 long startTime = System.currentTimeMillis();
                 if (i == 1) {
-                    data = new JSONObject();
                     Log.v((String)"KiboRpcApi", (String)"[takeSnapshot] Make start message");
-                    data.put("t_stamp_snapshot", (Object)this.df.format(new Date(System.currentTimeMillis())));
-                    data.put("status", (Object)"Taking snapshots of Target start");
-                    data.put("target_info", (Object)this.getTargetInfoObject(phaseNumber, targetId));
-                    this.gsService.sendData(MessageType.JSON, "data", data.toString());
-                    if (!this.gameManager.targetDeactivation(targetId)) {
-                        Log.e((String)"KiboRpcApi", (String)"[takeSnapshot] Fail to deactivate the target.");
-                        return false;
-                    }
                 }
-                data = new JSONObject();
                 Log.v((String)"KiboRpcApi", (String)"[takeSnapshot] Make target snapshot");
-                data.put("status", (Object)"Taking a snapshot of Target");
-                data.put("target_info", (Object)this.getTargetInfoObject(phaseNumber, targetId));
-                this.gsService.sendData(MessageType.JSON, "data", data.toString());
                 if (!this.getterNode.getOnSimulation()) {
                     Log.v((String)"KiboRpcApi", (String)"[takeSnapshot] getOnSimulation: False");
                     Log.v((String)"KiboRpcApi", (String)"[takeSnapshot] Save bitmap");
                     Bitmap image = this.getBitmapNavCam();
-                    this.saveBitmap(image, String.valueOf(phaseNumber), String.valueOf(targetId));
+                    this.saveBitmap(image);
                 }
                 long currentTime = System.currentTimeMillis();
                 while (currentTime - startTime <= 1000L) {
@@ -898,17 +766,9 @@ extends Activity {
                     currentTime = System.currentTimeMillis();
                 }
             }
-            data = new JSONObject();
             Log.v((String)"KiboRpcApi", (String)"[takeSnapshot] Make target finish message");
-            data.put("status", (Object)"Taking snapshots of Target finish");
-            data.put("target_info", (Object)this.getTargetInfoObject(phaseNumber, targetId));
-            this.gsService.sendData(MessageType.JSON, "data", data.toString());
             Log.v((String)"KiboRpcApi", (String)"[Finish] takeSnapshot");
             return true;
-        }
-        catch (JSONException e) {
-            this.sendExceptionMessage("[takeSnapshot] Internal error was occurred. Unable to serialize data to JSON.", (Exception)((Object)e));
-            return false;
         }
         catch (SecurityException e) {
             this.sendExceptionMessage("[takeSnapshot] Internal error was occurred. Unable to access directory.", e);
@@ -928,14 +788,7 @@ extends Activity {
         }
     }
 
-    private JSONObject getTargetInfoObject(int phaseNumber, int targetId) throws JSONException {
-        JSONObject data = new JSONObject();
-        data.put("target_id", targetId);
-        data.put("phase_number", phaseNumber);
-        return data;
-    }
-
-    private void saveBitmap(Bitmap saveImage, String phaseNumber, String targetId) throws SecurityException, IOException, NullPointerException {
+    private void saveBitmap(Bitmap saveImage) throws SecurityException, IOException, NullPointerException {
         Log.v((String)"KiboRpcApi", (String)"[Start] saveBitmap");
         String filepath = this.gsService.getGuestScienceDataBasePath() + TARGET_IMAGES_SAVE_DIR;
         File file = new File(filepath);
@@ -945,7 +798,7 @@ extends Activity {
         }
         Date mDate = new Date();
         SimpleDateFormat fileNameDate = new SimpleDateFormat("yyyyMMdd_HHmmss");
-        String fileName = "Phase_" + phaseNumber + "_Target_" + targetId + "_" + fileNameDate.format(mDate) + ".png";
+        String fileName = "snapshot_" + fileNameDate.format(mDate) + ".png";
         String AttachName = file.getAbsolutePath() + "/" + fileName;
         FileOutputStream out = new FileOutputStream(AttachName);
         saveImage.compress(Bitmap.CompressFormat.PNG, 100, (OutputStream)out);
@@ -1002,29 +855,25 @@ extends Activity {
             }
             if (checkArgs) {
                 Log.i((String)"KiboRpcApi", (String)("Parameters: image, imageName == " + imageName));
-                if (this.getterNode.getOnSimulation()) {
-                    Log.v((String)"KiboRpcApi", (String)"[saveBitmapImage] getOnSimulation: True");
-                    Log.v((String)"KiboRpcApi", (String)"[saveBitmapImage] Check directry");
-                    String filepath = this.gsService.getGuestScienceDataBasePath() + DEBUG_IMAGES_SAVE_DIR;
-                    File file = new File(filepath);
-                    if (!file.exists()) {
-                        Log.v((String)"KiboRpcApi", (String)"[saveBitmapImage] Make save directry");
-                        file.mkdir();
-                    }
-                    File[] list = file.listFiles();
-                    int width = image.getWidth();
-                    int height = image.getHeight();
-                    int size = width * height;
-                    if (list.length >= 50) {
-                        Log.e((String)"KiboRpcApi", (String)"[saveBitmapImage] Can't save more than 50 images");
-                    } else if (size > 1228800) {
-                        Log.e((String)"KiboRpcApi", (String)"[saveBitmapImage] The size is too large.");
-                    } else {
-                        Log.v((String)"KiboRpcApi", (String)"[saveBitmapImage] Save bitmap image");
-                        this.saveImage(image, imageName, file);
-                    }
+                Log.v((String)"KiboRpcApi", (String)"[saveBitmapImage] getOnSimulation: True");
+                Log.v((String)"KiboRpcApi", (String)"[saveBitmapImage] Check directry");
+                String filepath = this.gsService.getGuestScienceDataBasePath() + DEBUG_IMAGES_SAVE_DIR;
+                File file = new File(filepath);
+                if (!file.exists()) {
+                    Log.v((String)"KiboRpcApi", (String)"[saveBitmapImage] Make save directry");
+                    file.mkdir();
+                }
+                File[] list = file.listFiles();
+                int width = image.getWidth();
+                int height = image.getHeight();
+                int size = width * height;
+                if (list.length >= 50) {
+                    Log.e((String)"KiboRpcApi", (String)"[saveBitmapImage] Can't save more than 50 images");
+                } else if (size > 1228800) {
+                    Log.e((String)"KiboRpcApi", (String)"[saveBitmapImage] The size is too large.");
                 } else {
-                    Log.v((String)"KiboRpcApi", (String)"[saveBitmapImage] getOnSimulation: False");
+                    Log.v((String)"KiboRpcApi", (String)"[saveBitmapImage] Save bitmap image");
+                    this.saveImage(image, imageName, file);
                 }
             }
             Log.i((String)"KiboRpcApi", (String)"[Finish] saveBitmapImage");
@@ -1048,31 +897,27 @@ extends Activity {
             }
             if (checkArgs) {
                 Log.i((String)"KiboRpcApi", (String)("Parameters: image, imageName == " + imageName));
-                if (this.getterNode.getOnSimulation()) {
-                    Log.v((String)"KiboRpcApi", (String)"[saveMatImage] getOnSimulation: True");
-                    Log.v((String)"KiboRpcApi", (String)"[saveMatImage] Check directry");
-                    String filepath = this.gsService.getGuestScienceDataBasePath() + DEBUG_IMAGES_SAVE_DIR;
-                    File file = new File(filepath);
-                    if (!file.exists()) {
-                        Log.v((String)"KiboRpcApi", (String)"[saveMatImage] make save directory");
-                        file.mkdir();
-                    }
-                    File[] list = file.listFiles();
-                    int width = image.width();
-                    int height = image.height();
-                    int size = width * height;
-                    if (list.length >= 50) {
-                        Log.e((String)"KiboRpcApi", (String)"[saveMatImage] Can't save more than 50 images.");
-                    } else if (size > 1228800) {
-                        Log.e((String)"KiboRpcApi", (String)"[saveMatImage] The size is too large.");
-                    } else {
-                        Log.v((String)"KiboRpcApi", (String)"[saveMatImage] Save mat image");
-                        Bitmap bitmapImage = Bitmap.createBitmap((int)image.width(), (int)image.height(), (Bitmap.Config)Bitmap.Config.ARGB_8888);
-                        Utils.matToBitmap((Mat)image, (Bitmap)bitmapImage);
-                        this.saveImage(bitmapImage, imageName, file);
-                    }
+                Log.v((String)"KiboRpcApi", (String)"[saveMatImage] getOnSimulation: True");
+                Log.v((String)"KiboRpcApi", (String)"[saveMatImage] Check directry");
+                String filepath = this.gsService.getGuestScienceDataBasePath() + DEBUG_IMAGES_SAVE_DIR;
+                File file = new File(filepath);
+                if (!file.exists()) {
+                    Log.v((String)"KiboRpcApi", (String)"[saveMatImage] make save directory");
+                    file.mkdir();
+                }
+                File[] list = file.listFiles();
+                int width = image.width();
+                int height = image.height();
+                int size = width * height;
+                if (list.length >= 50) {
+                    Log.e((String)"KiboRpcApi", (String)"[saveMatImage] Can't save more than 50 images.");
+                } else if (size > 1228800) {
+                    Log.e((String)"KiboRpcApi", (String)"[saveMatImage] The size is too large.");
                 } else {
-                    Log.v((String)"KiboRpcApi", (String)"[saveMatImage] getOnSimulation: False");
+                    Log.v((String)"KiboRpcApi", (String)"[saveMatImage] Save mat image");
+                    Bitmap bitmapImage = Bitmap.createBitmap((int)image.width(), (int)image.height(), (Bitmap.Config)Bitmap.Config.ARGB_8888);
+                    Utils.matToBitmap((Mat)image, (Bitmap)bitmapImage);
+                    this.saveImage(bitmapImage, imageName, file);
                 }
             }
             Log.i((String)"KiboRpcApi", (String)"[Finish] saveMatImage");
@@ -1091,18 +936,30 @@ extends Activity {
         out.close();
     }
 
-    public List<Long> getTimeRemaining() {
-        Log.i((String)"KiboRpcApi", (String)"[Start] getTimeRemaining");
-        List<Long> list = this.gameManager.getTimeRemaining();
-        Log.i((String)"KiboRpcApi", (String)"[Finish] getTimeRemaining");
-        return list;
+    public void setAreaInfo(int areaId, String itemName) {
+        this.setAreaInfo(areaId, itemName, 1);
     }
 
-    public List<Integer> getActiveTargets() {
-        Log.i((String)"KiboRpcApi", (String)"[Start] getActiveTargets");
-        List<Integer> list = this.gameManager.getActiveTargets();
-        Log.i((String)"KiboRpcApi", (String)"[Finish] getActiveTargets");
-        return list;
+    public void setAreaInfo(int areaId, String itemName, int number) {
+        try {
+            Log.i((String)"KiboRpcApi", (String)"[Start] setAreaInfo");
+            boolean checkArgs = true;
+            if (itemName == null) {
+                Log.e((String)"KiboRpcApi", (String)"[saveBitmapImage] itemName is null");
+                itemName = "";
+            }
+            Log.i((String)"KiboRpcApi", (String)("Parameters: areaId == " + areaId + ", itemName == " + itemName + ", number == " + number));
+            this.areaItemMap.setAreaInfo(areaId, itemName, number);
+            JSONObject data = new JSONObject();
+            data.put("area_id", areaId);
+            data.put("lost_item", (Object)itemName);
+            data.put("num", number);
+            this.gsService.sendData(MessageType.JSON, "data", data.toString());
+            Log.i((String)"KiboRpcApi", (String)"[Finish] setAreaInfo");
+        }
+        catch (Exception e) {
+            this.sendExceptionMessage("[setAreaInfo] Internal error was occurred.", e);
+        }
     }
 }
 
