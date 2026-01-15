@@ -13,7 +13,6 @@ import jp.jaxa.iss.kibo.rpc.api.GetterNode;
 import jp.jaxa.iss.kibo.rpc.api.KiboRpcApi;
 import org.json.JSONException;
 import org.json.JSONObject;
-import org.opencv.android.OpenCVLoader;
 import org.xbill.DNS.ResolverConfig;
 
 public class KiboRpcService
@@ -84,10 +83,13 @@ extends StartGuestScienceService {
         System.setProperty("dns.server", "127.0.0.1");
         System.setProperty("dns.search", "iss");
         ResolverConfig.refresh();
-        if (!OpenCVLoader.initDebug()) {
-            Log.e((String)"OpenCv", (String)"Unable to load OpenCV");
-        } else {
-            Log.d((String)"OpenCv", (String)"OpenCV loaded");
+        try {
+            //System.loadLibrary(org.opencv.core.Core.NATIVE_LIBRARY_NAME);
+            System.load("/usr/lib/x86_64-linux-gnu/libopencv_java480.so");
+            Log.d("OpenCv", "OpenCV loaded (JVM)");
+        } catch (UnsatisfiedLinkError e) {
+            Log.e("OpenCv", "Failed to load OpenCV native library", e);
+            throw e;
         }
         this.api = KiboRpcApi.getInstance(this);
         this.sendStarted("info");
