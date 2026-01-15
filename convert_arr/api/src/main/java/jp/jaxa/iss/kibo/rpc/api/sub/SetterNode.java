@@ -1,12 +1,12 @@
 /*
  * Decompiled with CFR 0.152.
  */
-package jp.jaxa.iss.kibo.rpc.api;
+package jp.jaxa.iss.kibo.rpc.api.sub;
 
 import common.util.Log;
 import ff_msgs.SignalState;
 import java.net.URI;
-import org.ros.android.NodeMainExecutorService;
+//import org.ros.android.NodeMainExecutorService;
 import org.ros.namespace.GraphName;
 import org.ros.node.AbstractNodeMain;
 import org.ros.node.ConnectedNode;
@@ -17,7 +17,7 @@ import org.ros.node.topic.Publisher;
 public class SetterNode
 extends AbstractNodeMain {
     public static SetterNode instance = null;
-    private NodeMainExecutorService nodeMainExecutorService;
+    //private NodeMainExecutorService nodeMainExecutorService;
     private Publisher<SignalState> signalStatePublisher;
     private static final URI ROS_MASTER_URI = URI.create("http://llp:11311");
     private static final String EMULATOR_ROS_HOSTNAME = "hlp";
@@ -27,10 +27,10 @@ extends AbstractNodeMain {
     private final Object signal_state_lock = new Object();
 
     private SetterNode() {
-        this.nodeMainExecutorService = new NodeMainExecutorService();
+        //this.nodeMainExecutorService = new NodeMainExecutorService();
         NodeConfiguration nodeConfiguration = NodeConfiguration.newPublic((String)EMULATOR_ROS_HOSTNAME);
         nodeConfiguration.setMasterUri(ROS_MASTER_URI);
-        this.nodeMainExecutorService.execute((NodeMain)this, nodeConfiguration);
+        //this.nodeMainExecutorService.execute((NodeMain)this, nodeConfiguration);
     }
 
     public GraphName getDefaultNodeName() {

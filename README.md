@@ -7,3 +7,9 @@ cd aonvert_arr
 
 ```
 
+## Find opencv
+
+```
+find /usr/lib /usr/local/lib -type f -name "libopencv_java*.so"
+
+```

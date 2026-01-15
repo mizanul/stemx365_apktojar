@@ -3,16 +3,17 @@
  */
 package jp.jaxa.iss.kibo.rpc.api;
 
-import android.util.Log;
+import common.util.Log;
 import gov.nasa.arc.astrobee.Robot;
-import gov.nasa.arc.astrobee.android.gs.MessageType;
-import gov.nasa.arc.astrobee.android.gs.StartGuestScienceService;
+import gov.nasa.arc.astrobee.ros.internal.util.MessageType;
+import jp.jaxa.iss.kibo.rpc.api.sub.StartGuestScienceService;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
-import jp.jaxa.iss.kibo.rpc.api.GetterNode;
+import jp.jaxa.iss.kibo.rpc.api.sub.GetterNode;
 import jp.jaxa.iss.kibo.rpc.api.KiboRpcApi;
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.opencv.android.OpenCVLoader;
 import org.xbill.DNS.ResolverConfig;
 
 public class KiboRpcService
@@ -37,7 +38,7 @@ extends StartGuestScienceService {
                         JSONObject data = new JSONObject();
                         data.put("error", (Object)("Program Down: Exception: " + e.getClass().getName()));
                         this.sendData(MessageType.JSON, "data", data.toString());
-                        Log.e((String)"KiboRpcApi", (String)"Program Down: Exception: ", (Throwable)e);
+                        common.util.Log.e((String)"KiboRpcApi", (String)"Program Down: Exception: ", (Throwable)e);
                     }
                     return;
                 }
@@ -49,7 +50,7 @@ extends StartGuestScienceService {
                         JSONObject data = new JSONObject();
                         data.put("error", (Object)("Program Down: Exception: " + e.getClass().getName()));
                         this.sendData(MessageType.JSON, "data", data.toString());
-                        Log.e((String)"KiboRpcApi", (String)"Program Down: Exception: ", (Throwable)e);
+                        common.util.Log.e((String)"KiboRpcApi", (String)"Program Down: Exception: ", (Throwable)e);
                     }
                     return;
                 }
@@ -61,7 +62,7 @@ extends StartGuestScienceService {
                         JSONObject data = new JSONObject();
                         data.put("error", (Object)("Program Down: Exception: " + e.getClass().getName()));
                         this.sendData(MessageType.JSON, "data", data.toString());
-                        Log.e((String)"KiboRpcApi", (String)"Program Down: Exception: ", (Throwable)e);
+                        common.util.Log.e((String)"KiboRpcApi", (String)"Program Down: Exception: ", (Throwable)e);
                     }
                     return;
                 }
@@ -71,11 +72,11 @@ extends StartGuestScienceService {
         }
         catch (JSONException e) {
             this.sendData(MessageType.JSON, "data", ((Object)((Object)e)).getClass().getName());
-            Log.e((String)"KiboRpcApi", (String)"Program Down: Exception: ", (Throwable)e);
+            common.util.Log.e((String)"KiboRpcApi", (String)"Program Down: Exception: ", (Throwable)e);
         }
         catch (Exception ex) {
             this.sendData(MessageType.JSON, "data", ex.getClass().getName());
-            Log.e((String)"KiboRpcApi", (String)"Program Down: Exception: ", (Throwable)ex);
+            common.util.Log.e((String)"KiboRpcApi", (String)"Program Down: Exception: ", (Throwable)ex);
         }
     }
 
@@ -83,13 +84,10 @@ extends StartGuestScienceService {
         System.setProperty("dns.server", "127.0.0.1");
         System.setProperty("dns.search", "iss");
         ResolverConfig.refresh();
-        try {
-            //System.loadLibrary(org.opencv.core.Core.NATIVE_LIBRARY_NAME);
-            System.load("/usr/lib/x86_64-linux-gnu/libopencv_java480.so");
-            Log.d("OpenCv", "OpenCV loaded (JVM)");
-        } catch (UnsatisfiedLinkError e) {
-            Log.e("OpenCv", "Failed to load OpenCV native library", e);
-            throw e;
+        if (!OpenCVLoader.initDebug()) {
+            common.util.Log.e((String)"OpenCv", (String)"Unable to load OpenCV");
+        } else {
+            common.util.Log.d((String)"OpenCv", (String)"OpenCV loaded");
         }
         this.api = KiboRpcApi.getInstance(this);
         this.sendStarted("info");

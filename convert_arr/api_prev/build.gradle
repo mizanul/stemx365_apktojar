@@ -1,0 +1,46 @@
+group 'jp.jaxa.iss.kibo.rpc.api'
+version '1.0-SNAPSHOT'
+
+apply plugin: 'java'
+apply plugin: 'application'
+
+sourceCompatibility = 1.7
+
+ repositories {
+        maven {
+            url 'https://github.com/rosjava/rosjava_mvn_repo/raw/master'
+        }
+        google()
+        mavenCentral()
+        maven { url "https://maven.aliyun.com/repository/jcenter" }
+    }
+
+mainClassName = 'jp.jaxa.iss.kibo.rpc.api.StemxAstrobeeMain'
+
+dependencies {
+    compile fileTree(dir: 'libs', include: ['*.jar'])
+    testCompile group: 'junit', name: 'junit', version: '4.12'
+
+    compile group: 'commons-logging', name: 'commons-logging', version: '1.2'
+
+    compile('org.ros.rosjava_core:rosjava:[0.2,0.3)') {
+        exclude group: 'xml-apis'
+        exclude group: 'junit'
+    }
+    compile('org.ros.android_core:android_10:[0.2,0.3)') {
+        exclude group: 'xml-apis'
+        exclude group: 'junit'
+    }
+    testCompile 'junit:junit:4.12'
+   implementation 'com.quickbirdstudios:opencv-contrib:4.5.3.0'
+
+    compile 'javax.vecmath:vecmath:1.5.2'
+
+}
+
+jar {
+    manifest {
+        attributes 'Main-Class': 'jp.jaxa.iss.kibo.rpc.api.StemxAstrobeeMain'
+    }
+    from configurations.runtime.collect {zipTree(it)}
+}
