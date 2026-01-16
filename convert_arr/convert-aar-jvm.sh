@@ -218,6 +218,44 @@ sed -i \
 
 echo "✅ Patched KiboRpcService.java"
 
+# -----------------------------
+# Properly replace OpenCVLoader block in onGuestScienceStart()
+# -----------------------------
+echo "▶ Replacing OpenCVLoader block in KiboRpcService..."
+
+KIBO_RPC_FILE=$(find "$DECOMPILE_DIR" -name "KiboRpcService.java" | head -n 1)
+
+if [[ -z "$KIBO_RPC_FILE" ]]; then
+    echo "⚠️ KiboRpcService.java not found"
+else
+    echo "▶ Patching: $KIBO_RPC_FILE"
+
+    # 1) Remove Android OpenCV import
+    sed -i '/org\.opencv\.android\.OpenCVLoader/d' "$KIBO_RPC_FILE"
+
+    # 2) Replace the FULL if/else OpenCVLoader block
+    sed -i -E '
+        /if[[:space:]]*\(!OpenCVLoader\.initDebug\(\)\)[[:space:]]*\{/{
+            :a
+            N
+            /}[[:space:]]*else[[:space:]]*\{/!ba
+            N
+            :b
+            N
+            /}/!bb
+            c\
+        try {\
+            //System.loadLibrary(org.opencv.core.Core.NATIVE_LIBRARY_NAME);\
+            System.load("/usr/lib/jni/libopencv_java420.so");\
+            Log.d("OpenCv", "OpenCV loaded (JVM)");\
+        } catch (UnsatisfiedLinkError e) {\
+            Log.e("OpenCv", "Failed to load OpenCV native library", e);\
+            throw e;\
+        }
+        }
+    ' "$KIBO_RPC_FILE"
+fi
+
 
 # replace KiboRpcApi.java
 
@@ -226,6 +264,8 @@ rm -f "$DEST_API_DIR/src/main/java/jp.jaxa.iss.kibo.rpc.api/KiboRpcApi.java"
 echo "✅ Add new KiboRpcService.java to the api"
 cp -f "$DECOMPILE_DIR/jp/jaxa/iss/kibo/rpc/api/KiboRpcApi.java" "$DEST_API_DIR/src/main/java/jp/jaxa/iss/kibo/rpc/api/"
 cp -f "$DECOMPILE_DIR/jp/jaxa/iss/kibo/rpc/api/KiboRpcService.java" "$DEST_API_DIR/src/main/java/jp/jaxa/iss/kibo/rpc/api/"
+
+
 
 
 exit 0

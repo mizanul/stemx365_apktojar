@@ -3,7 +3,7 @@
  */
 package jp.jaxa.iss.kibo.rpc.api.sub;
 
-import common.util.Log;
+import common.util.CustomLog;
 import ff_msgs.SignalState;
 import java.net.URI;
 //import org.ros.android.NodeMainExecutorService;
@@ -38,15 +38,15 @@ extends AbstractNodeMain {
     }
 
     public void onStart(ConnectedNode connectedNode) {
-        common.util.Log.d((String)"KiboRpcApi", (String)"SetterNode initialization started.");
+        common.util.CustomLog.d((String)"KiboRpcApi", (String)"SetterNode initialization started.");
         try {
             this.signalStatePublisher = connectedNode.newPublisher(TOPIC_SIGNALS, "ff_msgs/SignalState");
             this.signalStatePublisher.setLatchMode(true);
             instance = this;
-            common.util.Log.d((String)"KiboRpcApi", (String)"SetterNode initialization succeeded.");
+            common.util.CustomLog.d((String)"KiboRpcApi", (String)"SetterNode initialization succeeded.");
         }
         catch (Exception e) {
-            common.util.Log.e((String)"KiboRpcApi", (String)"SetterNode initialization failed, msg:", (Throwable)e);
+            common.util.CustomLog.e((String)"KiboRpcApi", (String)"SetterNode initialization failed, msg:", (Throwable)e);
         }
     }
 
@@ -64,99 +64,99 @@ extends AbstractNodeMain {
         Object object = this.signal_state_lock;
         synchronized (object) {
             if (times <= 0) {
-                common.util.Log.w((String)"KiboRpcApi", (String)("SetterNode setSignalState : Specified times <" + times + "> is not correct."));
+                common.util.CustomLog.w((String)"KiboRpcApi", (String)("SetterNode setSignalState : Specified times <" + times + "> is not correct."));
                 return false;
             }
             switch (signalState) {
                 case 0: {
-                    common.util.Log.i((String)"KiboRpcApi", (String)"SetterNode setSignalState status : VIDEO_ON");
+                    common.util.CustomLog.i((String)"KiboRpcApi", (String)"SetterNode setSignalState status : VIDEO_ON");
                     break;
                 }
                 case 1: {
-                    common.util.Log.i((String)"KiboRpcApi", (String)"SetterNode setSignalState status : VIDEO_OFF");
+                    common.util.CustomLog.i((String)"KiboRpcApi", (String)"SetterNode setSignalState status : VIDEO_OFF");
                     break;
                 }
                 case 3: {
-                    common.util.Log.i((String)"KiboRpcApi", (String)"SetterNode setSignalState status : SUCCESS");
+                    common.util.CustomLog.i((String)"KiboRpcApi", (String)"SetterNode setSignalState status : SUCCESS");
                     break;
                 }
                 case 4: {
-                    common.util.Log.i((String)"KiboRpcApi", (String)"SetterNode setSignalState status : ENTER_HATCHWAY");
+                    common.util.CustomLog.i((String)"KiboRpcApi", (String)"SetterNode setSignalState status : ENTER_HATCHWAY");
                     break;
                 }
                 case 5: {
-                    common.util.Log.i((String)"KiboRpcApi", (String)"SetterNode setSignalState status : UNDOCK");
+                    common.util.CustomLog.i((String)"KiboRpcApi", (String)"SetterNode setSignalState status : UNDOCK");
                     break;
                 }
                 case 6: {
-                    common.util.Log.i((String)"KiboRpcApi", (String)"SetterNode setSignalState status : UNPERCH");
+                    common.util.CustomLog.i((String)"KiboRpcApi", (String)"SetterNode setSignalState status : UNPERCH");
                     break;
                 }
                 case 7: {
-                    common.util.Log.i((String)"KiboRpcApi", (String)"SetterNode setSignalState status : MOTION_IMPAIRED");
+                    common.util.CustomLog.i((String)"KiboRpcApi", (String)"SetterNode setSignalState status : MOTION_IMPAIRED");
                     break;
                 }
                 case 8: {
-                    common.util.Log.i((String)"KiboRpcApi", (String)"SetterNode setSignalState status : THRUST_FORWARD");
+                    common.util.CustomLog.i((String)"KiboRpcApi", (String)"SetterNode setSignalState status : THRUST_FORWARD");
                     break;
                 }
                 case 9: {
-                    common.util.Log.i((String)"KiboRpcApi", (String)"SetterNode setSignalState status : THRUST_AFT");
+                    common.util.CustomLog.i((String)"KiboRpcApi", (String)"SetterNode setSignalState status : THRUST_AFT");
                     break;
                 }
                 case 10: {
-                    common.util.Log.i((String)"KiboRpcApi", (String)"SetterNode setSignalState status : TURN_RIGHT");
+                    common.util.CustomLog.i((String)"KiboRpcApi", (String)"SetterNode setSignalState status : TURN_RIGHT");
                     break;
                 }
                 case 11: {
-                    common.util.Log.i((String)"KiboRpcApi", (String)"SetterNode setSignalState status : TURN_LEFT");
+                    common.util.CustomLog.i((String)"KiboRpcApi", (String)"SetterNode setSignalState status : TURN_LEFT");
                     break;
                 }
                 case 12: {
-                    common.util.Log.i((String)"KiboRpcApi", (String)"SetterNode setSignalState status : TURN_UP");
+                    common.util.CustomLog.i((String)"KiboRpcApi", (String)"SetterNode setSignalState status : TURN_UP");
                     break;
                 }
                 case 13: {
-                    common.util.Log.i((String)"KiboRpcApi", (String)"SetterNode setSignalState status : TURN_DOWN");
+                    common.util.CustomLog.i((String)"KiboRpcApi", (String)"SetterNode setSignalState status : TURN_DOWN");
                     break;
                 }
                 case 14: {
-                    common.util.Log.i((String)"KiboRpcApi", (String)"SetterNode setSignalState status : CLEAR");
+                    common.util.CustomLog.i((String)"KiboRpcApi", (String)"SetterNode setSignalState status : CLEAR");
                     break;
                 }
                 case 15: {
-                    common.util.Log.i((String)"KiboRpcApi", (String)"SetterNode setSignalState status : SLEEP");
+                    common.util.CustomLog.i((String)"KiboRpcApi", (String)"SetterNode setSignalState status : SLEEP");
                     break;
                 }
                 case 16: {
-                    common.util.Log.i((String)"KiboRpcApi", (String)"SetterNode setSignalState status : WAKE");
+                    common.util.CustomLog.i((String)"KiboRpcApi", (String)"SetterNode setSignalState status : WAKE");
                     break;
                 }
                 case 17: {
-                    common.util.Log.i((String)"KiboRpcApi", (String)"SetterNode setSignalState status : STOP_ALL_LIGHTS");
+                    common.util.CustomLog.i((String)"KiboRpcApi", (String)"SetterNode setSignalState status : STOP_ALL_LIGHTS");
                     break;
                 }
                 case 18: {
-                    common.util.Log.i((String)"KiboRpcApi", (String)"SetterNode setSignalState status : CHARGING");
+                    common.util.CustomLog.i((String)"KiboRpcApi", (String)"SetterNode setSignalState status : CHARGING");
                     break;
                 }
                 default: {
-                    common.util.Log.w((String)"KiboRpcApi", (String)"SetterNode setSignalState : Specified state is unknown.");
+                    common.util.CustomLog.w((String)"KiboRpcApi", (String)"SetterNode setSignalState : Specified state is unknown.");
                     return false;
                 }
             }
-            common.util.Log.i((String)"KiboRpcApi", (String)("SetterNode setSignalState times  : " + times));
+            common.util.CustomLog.i((String)"KiboRpcApi", (String)("SetterNode setSignalState times  : " + times));
             SignalState message = (SignalState)this.signalStatePublisher.newMessage();
             message.setState(signalState.byteValue());
             try {
                 for (int i = 0; i < times; ++i) {
                     this.signalStatePublisher.publish(message);
-                    common.util.Log.i((String)"KiboRpcApi", (String)("SetterNode setSignalState publish " + (i + 1) + " th"));
+                    common.util.CustomLog.i((String)"KiboRpcApi", (String)("SetterNode setSignalState publish " + (i + 1) + " th"));
                     Thread.sleep(10L);
                 }
             }
             catch (InterruptedException e) {
-                common.util.Log.e((String)"KiboRpcApi", (String)"SetterNode setSignalState All publishes may not have been possible.", (Throwable)e);
+                common.util.CustomLog.e((String)"KiboRpcApi", (String)"SetterNode setSignalState All publishes may not have been possible.", (Throwable)e);
                 return false;
             }
             return true;

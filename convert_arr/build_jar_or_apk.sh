@@ -6,7 +6,7 @@
 
 set -Eeuo pipefail
 
-./update_api.sh
+#./update_api.sh
 
 # ------------------------------
 # Input
